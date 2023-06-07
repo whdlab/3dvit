@@ -43,7 +43,7 @@ while True:
     prefixes.remove(file)
     one_sub_images = os.listdir(os.path.join(dataset_path, file))
     one_sub_images_nums = len(one_sub_images)
-    if train_count < 0.9 * total_count:     # train : test = 9:1
+    if train_count < 0.8 * total_count:     # train : test = 9:1
         target_dir = os.path.join(train_path, file)
         train_count += one_sub_images_nums
     else:

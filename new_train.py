@@ -273,7 +273,7 @@ def train_mri_type(mri_type, data_k_fold_path, RESUME=None):
     model = Convformer(num_classes=1, has_logits=False)
     # model = resnet18()
     model.to(device)
-    lr = 0.0001
+    lr = 0.00005
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     #         optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     criterion = torch_functional.binary_cross_entropy_with_logits

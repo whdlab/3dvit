@@ -198,7 +198,7 @@ def Generate_Standard_npy_data(Nii_file_root_path, save_npy_root_path,
 
 if __name__ == "__main__":
     # step1 往标签信息csv文件的subject id添加_i后缀， 标明第一次的扫描
-    # modify_pid_column('E:\\datasets\\ADdata\\originate_datas\\all_new_data\\all_data\\mci\\all_AD&HC.xlsx', class_='pmci')
+    modify_pid_column('C:\\Users\\whd\\Desktop\\smciall_nole.xlsx', class_='smci')
 
     # step2 选择每个被试的哪一次扫描作为训练数据
     # filter_pid_suffix('data_file/new_HC_LABEL_190sub_742images.xlsx', suffix='_0',
@@ -211,11 +211,11 @@ if __name__ == "__main__":
     # Generate_Standard_npy_data(root_image_path, save_path, mmse_label_csv_path, class_able_list=['smci', 'pmci'])
 
     # step4 生成images/sub_id/date/nii_file的结构
-    root_directory = "E:\\datasets\\new\\HC\\SMC_in_NEW_NC_images228_sub84"
-    output_directory = "E:\\datasets\\new\\HC\\SMC_in_NEW_NC_images228_sub84\\images"
-    images_of_subjects_structure(root_directory, output_directory)
-
-    # # step5 将所有的npy文件放到类文件夹下
-    root = "E:\\datasets\\new\\HC\\SMC_in_NEW_NC_images228_sub84"
-    out = "E:\\datasets\\new\\HC\\SMC_in_NEW_NCdata_images228_sub84"
-    all_nii_in_files(root, out)
+    # root_directory = "E:\\datasets\\new\\HC\\SMC_in_NEW_NC_images228_sub84"
+    # output_directory = "E:\\datasets\\new\\HC\\SMC_in_NEW_NC_images228_sub84\\images"
+    # images_of_subjects_structure(root_directory, output_directory)
+    #
+    # # # step5 将所有的npy文件放到类文件夹下
+    # root = "E:\\datasets\\new\\HC\\SMC_in_NEW_NC_images228_sub84"
+    # out = "E:\\datasets\\new\\HC\\SMC_in_NEW_NCdata_images228_sub84"
+    # all_nii_in_files(root, out)

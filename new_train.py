@@ -17,7 +17,6 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import roc_auc_score
 from utils import mkdir, load_npy_data, calculate, _init_fn, set_seed, make_train_pic, save_model_super_state
 from convformer import Convformer
-
 # from resnet import *
 # from model import MobileNetV2
 from vit3d import vit_base_patch16_224_in21k
@@ -250,18 +249,18 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, RESUME=None):
 
     train_loader = torch_data.DataLoader(
         train_data_retriever,
-        batch_size=12,
+        batch_size=4,
         shuffle=True,
-        num_workers=0,
+        num_workers=2,
         pin_memory=False,
         worker_init_fn=_init_fn,
     )
 
     valid_loader = torch_data.DataLoader(
         valid_data_retriever,
-        batch_size=12,  # SIZE=4, 8
+        batch_size=4,  # SIZE=4, 8
         shuffle=False,
-        num_workers=0,
+        num_workers=2,
         pin_memory=False,
         worker_init_fn=_init_fn
     )
@@ -271,7 +270,7 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, RESUME=None):
     # model = resnet18()
     model.to(device)
     lr = 0.00005
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=10e-5)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
     #         optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     criterion = torch_functional.binary_cross_entropy_with_logits
     # scheduler = lr_scheduler.CosineAnnealingLR(optimizer, int((epoch * 9) / 10), eta_min=1e-7, last_epoch=-1 )
@@ -310,7 +309,7 @@ if __name__ == "__main__":
     mci_datasets_root = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data" \
                     "\\togather_image_to_sub "
     adhc_datasets_root = "C:\\Users\\whd\\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub"
-    model_path = 'cloud/vit112_save_advshc'
+    model_path = 'cloud/vit113_save_advshc'
     model_floder = 'model_6.8_13.01'
     save_path = os.path.join(model_path, model_floder)
     mkdir(save_path)

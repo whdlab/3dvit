@@ -113,15 +113,6 @@ class Block3D(nn.Module):
 
 class ConvNeXt3D(nn.Module):
     r"""ConvNeXt 3D model.
-
-    Args:
-        in_chans (int): Number of input image channels. Default: 3
-        num_classes (int): Number of classes for classification head. Default: 1000
-        depths (tuple(int)): Number of blocks at each stage. Default: [3, 3, 9, 3]
-        dims (int): Feature dimension at each stage. Default: [96, 192, 384, 768]
-        drop_path_rate (float): Stochastic depth rate. Default: 0.
-        layer_scale_init_value (float): Init value for Layer Scale. Default: 1e-6.
-        head_init_scale (float): Init scaling value for classifier weights and biases. Default: 1.
     """
 
     def __init__(
@@ -131,35 +122,35 @@ class ConvNeXt3D(nn.Module):
             layer_scale_init_value=1e-6,
     ):
         super().__init__()
-
-        if dims is None:
-            dims = []
         self.DS1 = nn.Sequential(
-            nn.Conv3d(in_chans, dims[0], kernel_size=4, stride=4),
-            LayerNorm3D(dims[0], eps=1e-6, data_format="channels_first"),
-        )
+            nn.Conv3d(in_chans, 32, kernel_size=4, stride=2, padding=1),
+            nn.Conv3d(32, 64, kernel_size=3, stride=1, padding=1),
+            LayerNorm3D(64, eps=1e-6, data_format="channels_first"), )
 
         self.DS2 = nn.Sequential(
-            nn.Conv3d(dims[0], dims[1], kernel_size=2, stride=2),
+            nn.Conv3d(64, dims[1], kernel_size=2, stride=2),
             LayerNorm3D(dims[1], eps=1e-6, data_format="channels_first"), )
 
         self.DS3 = nn.Sequential(
-            nn.Conv3d(dims[1], dims[2], kernel_size=2, stride=2),
-            LayerNorm3D(dims[2], eps=1e-6, data_format="channels_first"), )
+            nn.Conv3d(dims[1], dims[1], kernel_size=2, stride=2),
+            LayerNorm3D(dims[1], eps=1e-6, data_format="channels_first"), )
 
-        # self.DS4 = nn.Sequential(
-        # nn.Conv3d(dims[2], dims[3], kernel_size=1, stride=1),
-        # LayerNorm3D(dims[3], eps=1e-6, data_format="channels_first"),
-        # )
+        self.DS4 = nn.Sequential(
+        nn.Conv3d(dims[1], dims[2], kernel_size=2, stride=2),
+        LayerNorm3D(dims[2], eps=1e-6, data_format="channels_first"),
+        )
         self.conv_block1 = Block3D(
-            dim=dims[0],
+            dim=64,
             layer_scale_init_value=layer_scale_init_value)
         self.conv_block2 = Block3D(
             dim=dims[1],
             layer_scale_init_value=layer_scale_init_value)
         self.conv_block3 = Block3D(
-            dim=dims[2],
+            dim=dims[1],
             layer_scale_init_value=layer_scale_init_value)
+
+        self.MS1 = MBAF_Block(64)
+        self.MS2 = MBAF_Block(128, [1, 3])
 
     def _init_weights(self, m):
         if isinstance(m, (nn.Conv3d, nn.Linear)):
@@ -167,15 +158,20 @@ class ConvNeXt3D(nn.Module):
             nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
-        x = self.DS1(x)
-        x = self.conv_block1(x)
-        x = self.DS2(x)
-        x = self.conv_block2(x)
-        x = self.DS3(x)
-        x = self.conv_block3(x)
+        x = self.conv_block1(self.MS1(self.DS1(x)))
+        # x = self.DS1(x)
+        # x = self.MS1(x)
+        # x = self.conv_block1(x)
+        x = self.conv_block2(self.MS2(self.DS2(x)))
+        # x = self.DS2(x)
+        # x = self.MS2(x)
+        # x = self.conv_block2(x)
+        x = self.conv_block3(self.DS3(x))
+        # x = self.DS3(x)
+        # x = self.conv_block3(x)
 
+        x = self.DS4(x)
         x = x.flatten(2).transpose(1, 2)
-        # x = self.head(x)
         return x
 
 

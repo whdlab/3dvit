@@ -7,7 +7,8 @@ from collections import OrderedDict
 
 import torch
 import torch.nn as nn
-from backbone import convnext_tiny_3d
+# from backbone import convnext_tiny_3d
+from new_backbone import convnext_tiny_3d
 
 
 def drop_path(x, drop_prob: float = 0., training: bool = False):
@@ -351,9 +352,9 @@ def Convformer(num_classes: int = 2, has_logits: bool = True):
                        patch_size=16,
                        embed_dim=768,
                        in_c=1,
-                       depth=9,
+                       depth=2,
                        num_heads=12,
-                       drop_path_ratio=0.1,
+                       drop_path_ratio=0.2,
                        representation_size=768 if has_logits else None,
                        num_classes=num_classes)
     return model

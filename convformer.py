@@ -351,9 +351,9 @@ def Convformer(num_classes: int = 2, has_logits: bool = True):
                        patch_size=16,
                        embed_dim=768,
                        in_c=1,
-                       depth=9,
+                       depth=8,
                        num_heads=12,
-                       drop_path_ratio=0.1,
+                       drop_path_ratio=0.3,
                        representation_size=768 if has_logits else None,
                        num_classes=num_classes)
     return model

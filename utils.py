@@ -166,12 +166,12 @@ def save_model_super_state(save_root, model_path, name):
     net = torch.load(model_path, map_location=torch.device('cpu'))
     for key, value in net.items():
         if key != 'model_state_dict' and key != 'optimizer_state_dict':
-            with open(path, 'w') as f:
+            with open(path, 'a') as f:
                 str = f'{key}: {value}\n'
                 f.write(str)
 
         if key == 'optimizer_state_dict':
             opti = value['param_groups']
-            with open(path, 'w') as f:
+            with open(path, 'a') as f:
                 str = f'{opti}\n'
                 f.write(str)

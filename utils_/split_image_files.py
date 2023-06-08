@@ -3,14 +3,14 @@ import shutil
 import random
 
 # 数据集路径
-dataset_path = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data\\togather_image_to_sub/pmci"
+dataset_path = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data\\togather_image_to_sub/smci"
 
 # 训练集和测试集路径
-train_path = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data\\togather_image_to_sub/pmci_split/train"
+train_path = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data\\togather_image_to_sub/smci_split/train"
 if not os.path.exists(train_path):
     os.makedirs(train_path)
 
-test_path = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data\\togather_image_to_sub/pmci_split/test"
+test_path = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data\\togather_image_to_sub/smci_split/test"
 if not os.path.exists(test_path):
     os.makedirs(test_path)
 

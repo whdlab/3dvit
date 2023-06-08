@@ -26,7 +26,7 @@ set_seed(12)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 model_path = 'cloud/vit112_save_advshc'
-model_floder = 'model_6.7_1517'
+model_floder = 'model_6.8_1517'
 save_path = os.path.join(model_path, model_floder)
 mkdir(save_path)
 
@@ -219,6 +219,7 @@ class Trainer:
 
         os.makedirs(save_path, exist_ok=True)
         model_name = f"{modility}-fold{fold}.pth"
+        model_name_txt=model_name[:-4] + ".txt"
         self.lastmodel = os.path.join(save_path, model_name)
         torch.save(
             {
@@ -235,7 +236,7 @@ class Trainer:
             self.lastmodel,
         )
         # 保存参数txt
-        save_model_super_state(save_path, self.lastmodel, model_name)
+        save_model_super_state(save_path, self.lastmodel, model_name_txt)
 
     @staticmethod
     def info_message(message, *args, end="\n"):
@@ -268,13 +269,13 @@ def train_mri_type(mri_type, data_k_fold_path, RESUME=None):
         pin_memory=False,
         worker_init_fn=_init_fn
     )
-    epoch = 100
+    epoch = 80
     patience = 80
     model = Convformer(num_classes=1, has_logits=False)
     # model = resnet18()
     model.to(device)
-    lr = 0.00005
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    lr = 0.00001
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=10e-4)
     #         optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     criterion = torch_functional.binary_cross_entropy_with_logits
     # scheduler = lr_scheduler.CosineAnnealingLR(optimizer, int((epoch * 9) / 10), eta_min=1e-7, last_epoch=-1 )
@@ -312,6 +313,6 @@ def train_mri_type(mri_type, data_k_fold_path, RESUME=None):
 modelfiles = None
 # 开始训练
 if not modelfiles:
-    root = "C:\\Users\\whd\\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub"
+    root = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data\\togather_image_to_sub"
     modelfiles, rst_dfs = train_mri_type('t1_sag', root, RESUME=None)
     print(modelfiles)

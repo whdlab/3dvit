@@ -62,9 +62,8 @@ class CustomDataset(Dataset):
         image = data[0][0]
         label = data[0][1]
 
-        if self.split == 'train':
-            # 数据增强处理
-            image = self.transform(image)
+        # if self.split == 'train':
+            # image = self.transform(image)
         return torch.tensor(image).float().unsqueeze(0), torch.tensor(label).float()
 
 

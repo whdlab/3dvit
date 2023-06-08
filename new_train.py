@@ -25,11 +25,6 @@ from vit3d import vit_base_patch16_224_in21k
 set_seed(12)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
-model_path = 'cloud/vit112_save_advshc'
-model_floder = 'model_6.8_1517'
-save_path = os.path.join(model_path, model_floder)
-mkdir(save_path)
-
 
 class Trainer:
     def __init__(
@@ -69,7 +64,7 @@ class Trainer:
 
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])  # 加载优化器参数
             start_epoch = checkpoint['n_epoch']  # 设置开始的epoch
-           # / self.scheduler.load_state_dict(checkpoint['lr_schedule'])
+        # / self.scheduler.load_state_dict(checkpoint['lr_schedule'])
 
         for n_epoch in range(start_epoch + 1, epochs + 1):
             self.info_message("EPOCH: {}", n_epoch)
@@ -79,7 +74,7 @@ class Trainer:
 
             # self.scheduler.step()
 
-            train_acc_list.append(acc_train)    # for plot
+            train_acc_list.append(acc_train)  # for plot
             val_acc_list.append(acc_val)
             train_losses_list.append(train_loss)
             val_losses_list.append(valid_loss)
@@ -103,7 +98,8 @@ class Trainer:
 
             if self.best_valid_score < valid_auc and n_epoch > 10:
                 #             if self.best_valid_score > valid_loss:
-                self.save_model(n_epoch, modility, save_path, valid_loss, valid_auc, fold, epochs)
+                self.save_model(n_epoch, modility, save_path, valid_loss, valid_auc, fold,
+                                epochs, patience, acc_val)
                 self.info_message(
                     "loss decrease from {:.4f} to {:.4f}. Saved model to '{}'",
                     self.best_valid_score, valid_auc, self.lastmodel
@@ -138,7 +134,6 @@ class Trainer:
         y_all = []
         outputs_all = []
 
-
         for step, batch in enumerate(train_loader, 1):
             X = batch[0].to(self.device)
             targets = batch[1].to(self.device)
@@ -150,7 +145,7 @@ class Trainer:
             # weight.to(self.device)
             # for i in range(targets.shape[0]):
             #     weight[i] = w[int(targets[i])]
-            loss = self.criterion(outputs, targets)   # weight=weight.to(self.device)
+            loss = self.criterion(outputs, targets)  # weight=weight.to(self.device)
             loss.to(device)
             loss.backward()
 
@@ -215,11 +210,11 @@ class Trainer:
 
         return sum_loss / len(valid_loader), auc, int(time.time() - t), rst_val, acc
 
-    def save_model(self, n_epoch, modility, save_path, loss, auc, fold, all_epochs):
+    def save_model(self, n_epoch, modility, save_path, loss, auc, fold, all_epochs, patience, current_val_acc):
 
         os.makedirs(save_path, exist_ok=True)
         model_name = f"{modility}-fold{fold}.pth"
-        model_name_txt=model_name[:-4] + ".txt"
+        model_name_txt = model_name[:-4] + ".txt"
         self.lastmodel = os.path.join(save_path, model_name)
         torch.save(
             {
@@ -231,7 +226,8 @@ class Trainer:
                 "stop_model_checkpoint": self.lastmodel,
                 "all_epoch": all_epochs,
                 "init_lr": self.init_lr,
-                "patience": self.n_patience
+                "patience": patience,
+                "current_val_acc": current_val_acc
             },
             self.lastmodel,
         )
@@ -243,7 +239,7 @@ class Trainer:
         print(message.format(*args), end=end)
 
 
-def train_mri_type(mri_type, data_k_fold_path, RESUME=None):
+def train_mri_type(mri_type, data_k_fold_path, model_save_path, RESUME=None):
     rst_dfs = []
     train_dir = os.path.join(data_k_fold_path, 'train')
     # 验证集文件夹路径
@@ -263,19 +259,19 @@ def train_mri_type(mri_type, data_k_fold_path, RESUME=None):
 
     valid_loader = torch_data.DataLoader(
         valid_data_retriever,
-        batch_size=12,   # SIZE=4, 8
+        batch_size=12,  # SIZE=4, 8
         shuffle=False,
         num_workers=0,
         pin_memory=False,
         worker_init_fn=_init_fn
     )
-    epoch = 80
+    epoch = 150
     patience = 80
     model = Convformer(num_classes=1, has_logits=False)
     # model = resnet18()
     model.to(device)
-    lr = 0.00001
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=10e-4)
+    lr = 0.00005
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=10e-5)
     #         optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     criterion = torch_functional.binary_cross_entropy_with_logits
     # scheduler = lr_scheduler.CosineAnnealingLR(optimizer, int((epoch * 9) / 10), eta_min=1e-7, last_epoch=-1 )
@@ -296,7 +292,7 @@ def train_mri_type(mri_type, data_k_fold_path, RESUME=None):
         train_loader,
         valid_loader,
         f"{mri_type}",
-        save_path,
+        model_save_path,
         patience,
         fold=1,
     )
@@ -310,9 +306,13 @@ def train_mri_type(mri_type, data_k_fold_path, RESUME=None):
     return trainer.lastmodel, rst_dfs
 
 
-modelfiles = None
-# 开始训练
-if not modelfiles:
-    root = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data\\togather_image_to_sub"
-    modelfiles, rst_dfs = train_mri_type('t1_sag', root, RESUME=None)
+if __name__ == "__main__":
+    mci_datasets_root = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data" \
+                    "\\togather_image_to_sub "
+    adhc_datasets_root = "C:\\Users\\whd\\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub"
+    model_path = 'cloud/vit112_save_advshc'
+    model_floder = 'model_6.8_13.01'
+    save_path = os.path.join(model_path, model_floder)
+    mkdir(save_path)
+    modelfiles, rst_dfs = train_mri_type('t1_sag', adhc_datasets_root, save_path, RESUME=None)
     print(modelfiles)

@@ -2,19 +2,20 @@ import os
 import shutil
 import random
 
+"""
+将某一类的所有被试文件夹分别划分到train或者test文件夹
+"""
 # 数据集路径
-dataset_path = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data\\togather_image_to_sub/smci"
+dataset_path = "C:\\Users\\whd\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub\\hc"
 
 # 训练集和测试集路径
-train_path = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data\\togather_image_to_sub/smci_split/train"
+train_path = "C:\\Users\\whd\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub\\hc_split\\train"
 if not os.path.exists(train_path):
     os.makedirs(train_path)
 
-test_path = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data\\togather_image_to_sub/smci_split/test"
+test_path = "C:\\Users\\whd\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub\\hc_split\\test"
 if not os.path.exists(test_path):
     os.makedirs(test_path)
-
-
 
 # 计算每个前缀文件夹中npy文件的数量和总数
 prefix_counts = {}
@@ -43,7 +44,7 @@ while True:
     prefixes.remove(file)
     one_sub_images = os.listdir(os.path.join(dataset_path, file))
     one_sub_images_nums = len(one_sub_images)
-    if train_count < 0.8 * total_count:     # train : test = 9:1
+    if train_count < 0.8 * total_count:  # train : test = 9:1
         target_dir = os.path.join(train_path, file)
         train_count += one_sub_images_nums
     else:
@@ -54,7 +55,7 @@ while True:
         os.makedirs(target_dir)
 
     for image in one_sub_images:
-        shutil.copy(os.path.join(dataset_path, file, image),os.path.join(target_dir, image))
+        shutil.copy(os.path.join(dataset_path, file, image), os.path.join(target_dir, image))
     counts += one_sub_images_nums
 print()
 print("Finished! Total npy files: {}. Train set: {}. Test set: {}.".format(images_total, train_count, test_count))

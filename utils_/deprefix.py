@@ -1,10 +1,10 @@
 import os
 import shutil
 
-ad_test_path = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data\\togather_image_to_sub\\smci_split\\train"
-hc_test_path = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data\\togather_image_to_sub\\pmci_split\\train"
+ad_test_path = "C:\\Users\\whd\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub\\hc_split/test"
+hc_test_path = "C:\\Users\\whd\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub\\ad_split\\test"
 
-test_save_path = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data\\togather_image_to_sub\\train"
+test_save_path = "C:\\Users\\whd\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub\\test"
 os.makedirs(test_save_path, exist_ok=True)
 
 path_list = [ad_test_path, hc_test_path]

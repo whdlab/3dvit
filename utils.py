@@ -141,7 +141,7 @@ def make_rocs(roc_auc, fpr, tpr):
              label='ROC fold  (AUC = %0.2f)' % roc_auc)
 
 
-def make_train_pic(fold, acc_best, train_acc_list, train_losses_list, val_acc_list, val_loss=None,
+def make_train_pic(fold, acc_best, train_acc_list, train_losses_list, val_acc_list, folder_path, val_loss=None,
                    save_path=None):
     # 绘图代码
     plt.figure()  # 创建新的图形窗口
@@ -152,7 +152,7 @@ def make_train_pic(fold, acc_best, train_acc_list, train_losses_list, val_acc_li
     plt.legend()  # 显示图例
     plt.xlabel('epoches')
     plt.title('Model accuracy&loss of fold{}, acc={:.4f}'.format(fold, acc_best))
-    plt.savefig("./{}/fold{}_MOBILENETacc&loss.png".format(save_path, fold))
+    plt.savefig("./{}/{}_fold{}_acc&loss.png".format(save_path, folder_path,  fold))
     # plt.show()
     plt.close()
 

@@ -6,7 +6,6 @@ from model import LeNet
 from sklearn import model_selection, preprocessing, metrics, feature_selection
 import os
 import time
-import numpy as np
 import pandas as pd
 import torch
 from torch.utils import data as torch_data
@@ -23,7 +22,7 @@ from vit3d import vit_base_patch16_224_in21k
 
 set_seed(12)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(device)
+# print(device)
 
 
 class Trainer:
@@ -34,6 +33,7 @@ class Trainer:
             optimizer,
             criterion,
             RESUME,
+            start_model_save_epoch,
             init_lr,
             # scheduler
     ):
@@ -47,6 +47,7 @@ class Trainer:
         self.lastmodel = None
         self.RESUME_path = RESUME
         self.init_lr = init_lr
+        self.start_model_save_epoch = start_model_save_epoch
         # self.scheduler = scheduler
 
     def fit(self, epochs, train_loader, valid_loader, modility, model_root_save_path, floder_path, patience, fold):
@@ -97,7 +98,7 @@ class Trainer:
             #             if True:
             # if self.best_valid_score > valid_loss:
 
-            if self.best_valid_score < valid_auc and n_epoch > 10:
+            if self.best_valid_score < valid_auc and n_epoch > self.start_model_save_epoch:
                 #             if self.best_valid_score > valid_loss:
                 self.save_model(n_epoch, modility, save_path, floder_path, valid_loss, valid_auc, fold,
                                 epochs, patience, acc_val)
@@ -120,7 +121,9 @@ class Trainer:
         # final_rst_val = rst_val
 
         # 绘图代码
-        make_train_pic(1, acc_best, train_acc_list, train_losses_list, val_acc_list, save_path=save_path)
+        make_train_pic(1, acc_best, train_acc_list, train_losses_list, val_acc_list,
+                       folder_path=floder_path, save_path=save_path)
+
         all_rst = [final_rst_train, final_rst_val]
         rst = pd.concat(all_rst, axis=1)
         print(rst)
@@ -217,17 +220,31 @@ class Trainer:
         print(message.format(*args), end=end)
 
 
-def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RESUME=None):
+def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RESUME=None, start_model_save_epoch=None):
     rst_dfs = []
     train_dir = os.path.join(data_k_fold_path, 'train')
     val_dir = os.path.join(data_k_fold_path, 'test')
+
+    if not start_model_save_epoch:
+        start_model_save_epoch = 5
 
     train_data_retriever = CustomDataset(train_dir, split='train')
     valid_data_retriever = CustomDataset(val_dir, split='val')
     train_dataset_nums = len(train_data_retriever)
     val_dataset_nums = len(valid_data_retriever)
 
-    print(f"nums of train datasets: {train_dataset_nums}\n nums of val datasets: {val_dataset_nums}")
+    epoch = 50
+    patience = 50
+    model = Convformer(num_classes=1, has_logits=False)
+    model.to(device)
+    lr = 0.00005
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
+    #         optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    criterion = torch_functional.binary_cross_entropy_with_logits
+    # scheduler = lr_scheduler.CosineAnnealingLR(optimizer, int((epoch * 9) / 10), eta_min=1e-7, last_epoch=-1 )
+
+    #         criterion = nn.BCELoss()
+    print(f"nums of train datasets: {train_dataset_nums}\nnums of val datasets: {val_dataset_nums}")
 
     train_loader = torch_data.DataLoader(
         train_data_retriever,
@@ -240,32 +257,23 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
 
     valid_loader = torch_data.DataLoader(
         valid_data_retriever,
-        batch_size=4,  # SIZE=4, 8
+        batch_size=12,  # SIZE=4, 8
         shuffle=False,
         num_workers=2,
         pin_memory=False,
         worker_init_fn=_init_fn
     )
-    epoch = 50
-    patience = 80
-    model = Convformer(num_classes=1, has_logits=False)
-    # model = resnet18()
-    model.to(device)
-    lr = 0.00005
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
-    #         optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
-    criterion = torch_functional.binary_cross_entropy_with_logits
-    # scheduler = lr_scheduler.CosineAnnealingLR(optimizer, int((epoch * 9) / 10), eta_min=1e-7, last_epoch=-1 )
 
-    #         criterion = nn.BCELoss()
     trainer = Trainer(
         model,
         device,
         optimizer,
         criterion,
         RESUME,
-        # scheduler=scheduler
+        start_model_save_epoch,
         init_lr=lr
+        # scheduler=scheduler
+
     )
 
     rst = trainer.fit(
@@ -289,14 +297,13 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
 
 
 if __name__ == "__main__":
-    target_classification = 0
+    target_classification = 1
     model_name = '3Dvit'
     model_floder = 'model_6.8_13.01'
     target_name: str = ''
     if target_classification == 0:
-        # noinspection PyRedeclaration
+        print("AD VS HC")
         target_name = "AD_VS_HC"
-        print(target_name)
         datasets_root = "C:\\Users\\whd\\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub"
     elif target_classification == 1:
         print('sMCI VS pMCI')

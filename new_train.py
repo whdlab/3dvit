@@ -249,7 +249,7 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, RESUME=None):
 
     train_loader = torch_data.DataLoader(
         train_data_retriever,
-        batch_size=4,
+        batch_size=12,
         shuffle=True,
         num_workers=2,
         pin_memory=False,
@@ -264,7 +264,7 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, RESUME=None):
         pin_memory=False,
         worker_init_fn=_init_fn
     )
-    epoch = 150
+    epoch = 50
     patience = 80
     model = Convformer(num_classes=1, has_logits=False)
     # model = resnet18()

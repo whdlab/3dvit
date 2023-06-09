@@ -259,8 +259,9 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
     train_dataset_nums = len(train_data_retriever)
     val_dataset_nums = len(valid_data_retriever)
 
-    epoch = 51
+    epoch = 50
     patience = 50
+    batch_size = 8
     model = Convformer(num_classes=1, has_logits=False)
     model.to(device)
     lr = 0.00005
@@ -274,7 +275,7 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
 
     train_loader = torch_data.DataLoader(
         train_data_retriever,
-        batch_size=11,
+        batch_size=batch_size,
         shuffle=True,
         num_workers=2,
         pin_memory=False,
@@ -283,7 +284,7 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
 
     valid_loader = torch_data.DataLoader(
         valid_data_retriever,
-        batch_size=12,  # SIZE=4, 8
+        batch_size=batch_size,  # SIZE=4, 8
         shuffle=False,
         num_workers=2,
         pin_memory=False,
@@ -323,7 +324,7 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
 
 
 if __name__ == "__main__":
-    target_classification = 1
+    target_classification = 0
     model_name = '3Dvit'
     model_floder = 'model_6.8_13.01'
     target_name: str = ''

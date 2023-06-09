@@ -15,7 +15,7 @@ from Dataset import CustomDataset
 from Dataset import GetLoader
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import roc_auc_score
-from utils import mkdir, load_npy_data, calculate, _init_fn, set_seed, make_train_pic, save_model_super_state
+from utils import mkdir, load_npy_data, calculate, _init_fn, set_seed, make_train_pic, save_model
 from convformer import Convformer
 # from resnet import *
 # from model import MobileNetV2
@@ -24,6 +24,7 @@ from vit3d import vit_base_patch16_224_in21k
 set_seed(12)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
+
 
 class Trainer:
     def __init__(
@@ -48,8 +49,9 @@ class Trainer:
         self.init_lr = init_lr
         # self.scheduler = scheduler
 
-    def fit(self, epochs, train_loader, valid_loader, modility, save_path, patience, fold):
-        best_auc = 0
+    def fit(self, epochs, train_loader, valid_loader, modility, model_root_save_path, floder_path, patience, fold):
+        save_path = os.path.join(model_root_save_path, floder_path)
+        mkdir(save_path)
         val_acc_list = []
         train_acc_list = []
         val_losses_list = []
@@ -97,7 +99,7 @@ class Trainer:
 
             if self.best_valid_score < valid_auc and n_epoch > 10:
                 #             if self.best_valid_score > valid_loss:
-                self.save_model(n_epoch, modility, save_path, valid_loss, valid_auc, fold,
+                self.save_model(n_epoch, modility, save_path, floder_path, valid_loss, valid_auc, fold,
                                 epochs, patience, acc_val)
                 self.info_message(
                     "loss decrease from {:.4f} to {:.4f}. Saved model to '{}'",
@@ -209,43 +211,23 @@ class Trainer:
 
         return sum_loss / len(valid_loader), auc, int(time.time() - t), rst_val, acc
 
-    def save_model(self, n_epoch, modility, save_path, loss, auc, fold, all_epochs, patience, current_val_acc):
-
-        os.makedirs(save_path, exist_ok=True)
-        model_name = f"{modility}-fold{fold}.pth"
-        model_name_txt = model_name[:-4] + ".txt"
-        self.lastmodel = os.path.join(save_path, model_name)
-        torch.save(
-            {
-                "model_state_dict": self.model.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-                "best_valid_score": self.best_valid_score,
-                "n_epoch": n_epoch,
-                "auc": auc,
-                "stop_model_checkpoint": self.lastmodel,
-                "all_epoch": all_epochs,
-                "init_lr": self.init_lr,
-                "patience": patience,
-                "current_val_acc": current_val_acc
-            },
-            self.lastmodel,
-        )
-        # 保存参数txt
-        save_model_super_state(save_path, self.lastmodel, model_name_txt)
 
     @staticmethod
     def info_message(message, *args, end="\n"):
         print(message.format(*args), end=end)
 
 
-def train_mri_type(mri_type, data_k_fold_path, model_save_path, RESUME=None):
+def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RESUME=None):
     rst_dfs = []
     train_dir = os.path.join(data_k_fold_path, 'train')
-    # 验证集文件夹路径
     val_dir = os.path.join(data_k_fold_path, 'test')
 
     train_data_retriever = CustomDataset(train_dir, split='train')
     valid_data_retriever = CustomDataset(val_dir, split='val')
+    train_dataset_nums = len(train_data_retriever)
+    val_dataset_nums = len(valid_data_retriever)
+
+    print(f"nums of train datasets: {train_dataset_nums}\n nums of val datasets: {val_dataset_nums}")
 
     train_loader = torch_data.DataLoader(
         train_data_retriever,
@@ -292,6 +274,7 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, RESUME=None):
         valid_loader,
         f"{mri_type}",
         model_save_path,
+        model_floder,
         patience,
         fold=1,
     )
@@ -300,18 +283,42 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, RESUME=None):
     rst_dfs = pd.concat(rst_dfs)
     print(rst_dfs)
     rst_dfs = pd.DataFrame(rst_dfs)
-    rst_dfs.to_csv(os.path.join(save_path, 'train_val_res_pf.csv'))  # 保存每一折的指标
+    rst_dfs.to_csv(os.path.join(model_save_path, model_floder, 'train_val_res_pf.csv'))  # 保存每一折的指标
 
     return trainer.lastmodel, rst_dfs
 
 
 if __name__ == "__main__":
-    mci_datasets_root = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data" \
-                    "\\togather_image_to_sub "
-    adhc_datasets_root = "C:\\Users\\whd\\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub"
-    model_path = 'cloud/vit113_save_advshc'
+    target_classification = 0
+    model_name = '3Dvit'
     model_floder = 'model_6.8_13.01'
-    save_path = os.path.join(model_path, model_floder)
-    mkdir(save_path)
-    modelfiles, rst_dfs = train_mri_type('t1_sag', adhc_datasets_root, save_path, RESUME=None)
-    print(modelfiles)
+    target_name: str = ''
+    if target_classification == 0:
+        # noinspection PyRedeclaration
+        target_name = "AD_VS_HC"
+        print(target_name)
+        datasets_root = "C:\\Users\\whd\\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub"
+    elif target_classification == 1:
+        print('sMCI VS pMCI')
+        target_name = "sMCI_VS_pMCI"
+        datasets_root = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data" \
+                        "\\togather_image_to_sub"
+    elif target_classification == 2:
+        print('sMCI VS HC')
+        target_name = "sMCI_VS_HC"
+        datasets_root = ""
+    elif target_classification == 3:
+        print('sMCI VS AD')
+        target_name = "sMCI_VS_AD"
+        datasets_root = ""
+    elif target_classification == 4:
+        print('pMCI VS HC')
+        target_name = "pMCI_VS_HC"
+        datasets_root = ""
+    elif target_classification == 5:
+        print('pMCI VS AD')
+        target_name = "pMCI_VS_HC"
+        datasets_root = ""
+
+    model_root_path = f'cloud/{model_name}'
+    modelfiles, rst_dfs = train_mri_type(target_name, datasets_root, model_root_path, model_floder, RESUME=None)

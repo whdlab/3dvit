@@ -175,3 +175,27 @@ def save_model_super_state(save_root, model_path, name):
             with open(path, 'a') as f:
                 str = f'{opti}\n'
                 f.write(str)
+
+def save_model(self, n_epoch, modility, save_path, floder_path, loss, auc, fold, all_epochs, patience,
+               current_val_acc):
+    os.makedirs(save_path, exist_ok=True)
+    model_name = f"{modility}_{floder_path}-fold{fold}.pth"
+    model_name_txt = model_name[:-4] + ".txt"
+    self.lastmodel = os.path.join(save_path, model_name)
+    torch.save(
+        {
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "best_valid_score": self.best_valid_score,
+            "n_epoch": n_epoch,
+            "auc": auc,
+            "stop_model_checkpoint": self.lastmodel,
+            "all_epoch": all_epochs,
+            "init_lr": self.init_lr,
+            "patience": patience,
+            "current_val_acc": current_val_acc
+        },
+        self.lastmodel,
+    )
+    # 保存参数txt
+    save_model_super_state(save_path, self.lastmodel, model_name_txt)

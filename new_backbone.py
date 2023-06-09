@@ -162,7 +162,7 @@ class ConvNeXt3D(nn.Module):
         # x = self.DS1(x)
         # x = self.MS1(x)
         # x = self.conv_block1(x)
-        x = self.conv_block2(self.MS2(self.DS2(x)))
+        x = self.conv_block2(self.DS2(x))
         # x = self.DS2(x)
         # x = self.MS2(x)
         # x = self.conv_block2(x)

@@ -14,7 +14,8 @@ from Dataset import CustomDataset
 from Dataset import GetLoader
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import roc_auc_score
-from utils import mkdir, load_npy_data, calculate, _init_fn, set_seed, make_train_pic, save_model
+from utils import mkdir, load_npy_data, calculate, _init_fn, set_seed, make_train_pic, \
+    save_model_super_state
 from convformer import Convformer
 # from resnet import *
 # from model import MobileNetV2
@@ -100,8 +101,8 @@ class Trainer:
 
             if self.best_valid_score < valid_auc and n_epoch > self.start_model_save_epoch:
                 #             if self.best_valid_score > valid_loss:
-                self.save_model(n_epoch, modility, save_path, floder_path, valid_loss, valid_auc, fold,
-                                epochs, patience, acc_val)
+                self.save_model(n_epoch, modility, save_path, floder_path, current_val_loss=valid_loss, auc=valid_auc,
+                                fold=fold, all_epochs=epochs, patience=patience, current_val_acc=acc_val)
                 self.info_message(
                     "loss decrease from {:.4f} to {:.4f}. Saved model to '{}'",
                     self.best_valid_score, valid_auc, self.lastmodel
@@ -219,6 +220,31 @@ class Trainer:
     def info_message(message, *args, end="\n"):
         print(message.format(*args), end=end)
 
+    def save_model(self, n_epoch, modility, save_path, floder_path, current_val_loss, auc, fold, all_epochs, patience,
+                   current_val_acc):
+        os.makedirs(save_path, exist_ok=True)
+        model_name = f"{modility}_{floder_path}-fold{fold}.pth"
+        model_name_txt = model_name[:-4] + ".txt"
+        self.lastmodel = os.path.join(save_path, model_name)
+        torch.save(
+            {
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "best_valid_score": self.best_valid_score,
+                "n_epoch": n_epoch,
+                "auc": auc,
+                "stop_model_checkpoint": self.lastmodel,
+                "all_epoch": all_epochs,
+                "init_lr": self.init_lr,
+                "patience": patience,
+                "current_val_acc": current_val_acc,
+                "current_val_loss": current_val_loss,
+                "space": '\n\n'
+            },
+            self.lastmodel,
+        )
+        # 保存参数txt
+        save_model_super_state(save_path, self.lastmodel, model_name_txt)
 
 def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RESUME=None, start_model_save_epoch=None):
     rst_dfs = []
@@ -233,7 +259,7 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
     train_dataset_nums = len(train_data_retriever)
     val_dataset_nums = len(valid_data_retriever)
 
-    epoch = 50
+    epoch = 51
     patience = 50
     model = Convformer(num_classes=1, has_logits=False)
     model.to(device)
@@ -248,7 +274,7 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
 
     train_loader = torch_data.DataLoader(
         train_data_retriever,
-        batch_size=12,
+        batch_size=11,
         shuffle=True,
         num_workers=2,
         pin_memory=False,

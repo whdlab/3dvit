@@ -4,6 +4,18 @@ import torch.nn.functional as F
 from timm.models.layers import trunc_normal_, DropPath
 from timm.models.registry import register_model
 
+class SpatialAttention(nn.Module):
+    def __init__(self):
+        super(SpatialAttention, self).__init__()
+        self.conv = nn.Conv3d(2, 1, kernel_size=3, stride=1, padding=1)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        avgout = torch.mean(x, dim=1, keepdim=True)
+        maxout = torch.max(x, dim=1, keepdim=True).values
+        out = torch.cat([avgout, maxout], 1)
+        out = self.sigmoid(self.conv(out))
+        return out * x
 
 class Block3D(nn.Module):
     r"""3D ConvNeXt Block. Similar to the 2D version, but with 3D convolutions.
@@ -16,15 +28,16 @@ class Block3D(nn.Module):
 
     def __init__(self, dim, drop_path=0., i=1, layer_scale_init_value=1e-6):
         super().__init__()
-        self.dwconv0 = nn.Conv3d(dim, i * dim, kernel_size=1, groups=dim)
-        self.dwconv = nn.Conv3d(i * dim, i * dim, kernel_size=7, padding=3, groups=dim)  # depthwise conv
-        self.norm = LayerNorm3D(i * dim, eps=1e-6)
-        self.pwconv1 = nn.Linear(i * dim, 4 * i * dim)  # pointwise/1x1 convs
+        self.i = i
+        self.dwconv0 = nn.Conv3d(dim, self.i * dim, kernel_size=1, groups=dim)
+        self.dwconv = nn.Conv3d(self.i * dim, self.i * dim, kernel_size=7, padding=3, groups=dim)  # depthwise conv
+        self.norm = LayerNorm3D(self.i * dim, eps=1e-6)
+        self.pwconv1 = nn.Linear(self.i * dim, 4 * self.i * dim)  # pointwise/1x1 convs
         self.act = nn.GELU()
-        self.pwconv2 = nn.Linear(4 * i * dim, i * dim)
+        self.pwconv2 = nn.Linear(4 * self.i * dim, self.i * dim)
         self.gamma = (
             nn.Parameter(
-                layer_scale_init_value * torch.ones((i * dim)),
+                layer_scale_init_value * torch.ones((self.i * dim)),
                 requires_grad=True,
             )
             if layer_scale_init_value > 0
@@ -33,8 +46,8 @@ class Block3D(nn.Module):
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
     def forward(self, x):
-
-        x = self.dwconv0(x)
+        if self.i != 1:
+            x = self.dwconv0(x)
         input = x
         x = self.dwconv(x)
         x = x.permute(0, 2, 3, 4, 1)  # (N, C, D, H, W) -> (N, D, H, W, C)
@@ -87,8 +100,8 @@ class ConvNeXt3D(nn.Module):
             LayerNorm3D(dims[2], eps=1e-6, data_format="channels_first"), )
 
         self.DS4 = nn.Sequential(
-        nn.Conv3d(dims[2], dims[2], kernel_size=2, stride=2),
-        LayerNorm3D(dims[2], eps=1e-6, data_format="channels_first"),
+            nn.Conv3d(dims[2], dims[3], kernel_size=2, stride=2),
+            LayerNorm3D(dims[3], eps=1e-6, data_format="channels_first"),
         )
         self.conv_block1 = Block3D(
             dim=dims[0],
@@ -100,9 +113,12 @@ class ConvNeXt3D(nn.Module):
             dim=dims[2],
             layer_scale_init_value=layer_scale_init_value)
         self.conv_block4 = Block3D(
-            dim=dims[2],
-            i=3,
+            dim=dims[3],
+            i=1,
             layer_scale_init_value=layer_scale_init_value)
+
+        self.SA1 = SpatialAttention()
+        self.SA2 = SpatialAttention()
 
     def _init_weights(self, m):
         if isinstance(m, (nn.Conv3d, nn.Linear)):
@@ -112,12 +128,15 @@ class ConvNeXt3D(nn.Module):
     def forward(self, x):
         x = self.DS1(x)
         x = self.conv_block1(x)
+        x = self.SA1(x)
         x = self.DS2(x)
         x = self.conv_block2(x)
+        x = self.SA2(x)
         x = self.DS3(x)
         x = self.conv_block3(x)
         x = self.DS4(x)
         x = self.conv_block4(x)
+
         x = x.flatten(2).transpose(1, 2)
         # x = self.head(x)
         return x
@@ -156,7 +175,7 @@ class LayerNorm3D(nn.Module):
 
 @register_model
 def convnext_tiny_3d():
-    model = ConvNeXt3D(in_chans=1, dims=[64, 128, 256, 768])  # [3, 3, 9, 3]
+    model = ConvNeXt3D(in_chans=1, dims=[32, 64, 128, 768])  # [3, 3, 9, 3]
     return model
 
 

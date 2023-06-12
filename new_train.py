@@ -263,6 +263,20 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
     patience = 50
     batch_size = 8
     model = Convformer(num_classes=1, has_logits=False)
+    pretrained_dict = torch.load("C:\\Users\\whd\\PycharmProjects\\AD&HC\\cloud\\3Dvit\\model_6.8_13.01"
+                                 "\\AD_VS_HC_model_6.8_13.01-fold1.pth")
+    # net_states = model.state_dict()
+    # state_dict = pretrained_dict['model_state_dict']
+
+    del pretrained_dict['model_state_dict']['head.weight']
+    del pretrained_dict['model_state_dict']['head.bias']
+    model.load_state_dict(pretrained_dict['model_state_dict'], strict=False)
+    for name, para in model.named_parameters():
+        # 除head外，其他权重全部冻结
+        if "head" not in name:
+            para.requires_grad_(False)
+        else:
+            print("training {}".format(name))
     model.to(device)
     lr = 0.00005
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
@@ -324,19 +338,18 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
 
 
 if __name__ == "__main__":
-    target_classification = 0
+    target_classification = 1
     model_name = '3Dvit'
-    model_floder = 'model_6.8_13.01'
+    model_floder = 'pretrained_model_6.8_13.01'
     target_name: str = ''
     if target_classification == 0:
         print("AD VS HC")
         target_name = "AD_VS_HC"
-        datasets_root = "C:\\Users\\whd\\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub"
+        datasets_root = "E:\\datasets\\using_datasets\\112all_ad&hc_npy_data\\togather_image_to_sub"
     elif target_classification == 1:
         print('sMCI VS pMCI')
         target_name = "sMCI_VS_pMCI"
-        datasets_root = "C:\\Users\\whd\\PycharmProjects\\3dLenet\\utils_\\datasets\\data_npy\\112all_mci_npy_data" \
-                        "\\togather_image_to_sub"
+        datasets_root = "E:\\datasets\\using_datasets\\112all_mci_npy_data\\togather_image_to_sub"
     elif target_classification == 2:
         print('sMCI VS HC')
         target_name = "sMCI_VS_HC"

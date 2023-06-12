@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from timm.models.layers import trunc_normal_, DropPath
 from timm.models.registry import register_model
 
+
 class SpatialAttention(nn.Module):
     def __init__(self):
         super(SpatialAttention, self).__init__()
@@ -16,6 +17,17 @@ class SpatialAttention(nn.Module):
         out = torch.cat([avgout, maxout], 1)
         out = self.sigmoid(self.conv(out))
         return out * x
+
+
+def DropKey(Q, K, V, use_Dropkey, mask_radio):
+    attn = (Q * (Q.shape[1] ** -0.5)) @ K.transpose(-2, -1)
+    if use_Dropkey == True:
+        m_r = torch.ones_like(attn) * mask_radio
+        attn = attn + torch.bernoulli(m_r) * -1e12
+    attn = attn.softmax(dim=-1)
+    x = attn @ V
+    return x
+
 
 class Block3D(nn.Module):
     r"""3D ConvNeXt Block. Similar to the 2D version, but with 3D convolutions.

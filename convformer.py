@@ -11,6 +11,14 @@ import torch.nn as nn
 # from new_backbone import convnext_tiny_3d
 from new_backbone2 import convnext_tiny_3d
 
+def DropKey(Q, K, V, use_Dropkey, mask_radio):
+    attn = (Q * (Q.shape[1] ** -0.5)) @ K.transpose(-2, -1)
+    if use_Dropkey == True:
+        m_r = torch.ones_like(attn) * mask_radio
+        attn = attn + torch.bernoulli(m_r) * -1e12
+    attn = attn.softmax(dim=-1)
+    x = attn @ V
+    return x
 
 def drop_path(x, drop_prob: float = 0., training: bool = False):
     """
@@ -130,6 +138,7 @@ class Attention(nn.Module):
         self.proj = nn.Linear(dim, dim)  # 再得到多头注意分数后，进行concat后再经过一个权重为Wo的fc
         self.proj_drop = nn.Dropout(proj_drop_ratio)
 
+
     def forward(self, x):
         # [batch_size, num_patches + 1, total_embed_dim]
         B, N, C = x.shape
@@ -144,6 +153,9 @@ class Attention(nn.Module):
         # transpose: -> [batch_size, num_heads, embed_dim_per_head, num_patches + 1]
         # 矩阵乘法@: multiply -> [batch_size, num_heads, num_patches + 1, num_patches + 1]
         attn = (q @ k.transpose(-2, -1)) * self.scale
+        # Dropkey
+        # m_r = torch.ones_like(attn) * 0.1
+        # attn = attn + torch.bernoulli(m_r) * -1e12
         attn = attn.softmax(dim=-1)  # 按行进行softmax处理
         attn = self.attn_drop(attn)
 
@@ -248,7 +260,7 @@ class convformer(nn.Module):
         self.backbone = convnext_tiny_3d()
 
         self.patch_embed = embed_layer(img_size=img_size, patch_size=patch_size, in_c=in_c, embed_dim=embed_dim)
-        num_patches = 7 * 7 * 7
+        num_patches = 6 * 6 * 6
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))  # trainable, shape(batch-size， patch—num，
         # embed_dim)
@@ -362,7 +374,7 @@ def Convformer(num_classes: int = 2, has_logits: bool = True):
 
 
 if __name__ == "__main__":
-    input = torch.zeros((4, 1, 112, 112, 112)).cuda()
+    input = torch.zeros((8, 1, 112, 112, 112)).cuda()
     net = Convformer(num_classes=1, has_logits=False)
     net.cuda()
     param_size = 0

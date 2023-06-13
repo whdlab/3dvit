@@ -27,9 +27,9 @@ def Downsample(root_folder, target_remain_nums, target_remove_later_i, target_ro
     print("舍去后缀为：", num_list_remove)
     print("total nums:", total_nums)
     print("total remove:", num)
-    for i in all_remove_images:
-        shutil.move(i, target_root)
-    print(f"moved:{all_remove_images}")
+    # for i in all_remove_images:
+    #     shutil.move(i, target_root)
+    # print(f"moved:{all_remove_images}")
 
 
 if __name__ == "__main__":

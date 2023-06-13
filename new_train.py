@@ -23,6 +23,8 @@ from vit3d import vit_base_patch16_224_in21k
 
 set_seed(12)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 # print(device)
 
 
@@ -215,13 +217,12 @@ class Trainer:
 
         return sum_loss / len(valid_loader), auc, int(time.time() - t), rst_val, acc
 
-
     @staticmethod
     def info_message(message, *args, end="\n"):
         print(message.format(*args), end=end)
 
-    def save_model(self, n_epoch, modility, save_path, floder_path, current_val_loss, auc, fold, all_epochs, patience,
-                   current_val_acc):
+    def save_moddel(self, n_epoch, modility, save_path, floder_path, current_val_loss, auc, fold, all_epochs, patience,
+                    current_val_acc):
         os.makedirs(save_path, exist_ok=True)
         model_name = f"{modility}_{floder_path}-fold{fold}.pth"
         model_name_txt = model_name[:-4] + ".txt"
@@ -230,7 +231,7 @@ class Trainer:
             {
                 "model_state_dict": self.model.state_dict(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
-                "best_valid_score": self.best_valid_score,
+                "next_epoch_best_valid_score": self.best_valid_score,
                 "n_epoch": n_epoch,
                 "auc": auc,
                 "stop_model_checkpoint": self.lastmodel,
@@ -245,6 +246,7 @@ class Trainer:
         )
         # 保存参数txt
         save_model_super_state(save_path, self.lastmodel, model_name_txt)
+
 
 def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RESUME=None, start_model_save_epoch=None):
     rst_dfs = []
@@ -263,20 +265,20 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
     patience = 50
     batch_size = 8
     model = Convformer(num_classes=1, has_logits=False)
-    pretrained_dict = torch.load("C:\\Users\\whd\\PycharmProjects\\AD&HC\\cloud\\3Dvit\\model_6.8_13.01"
-                                 "\\AD_VS_HC_model_6.8_13.01-fold1.pth")
-    # net_states = model.state_dict()
-    # state_dict = pretrained_dict['model_state_dict']
-
-    del pretrained_dict['model_state_dict']['head.weight']
-    del pretrained_dict['model_state_dict']['head.bias']
-    model.load_state_dict(pretrained_dict['model_state_dict'], strict=False)
-    for name, para in model.named_parameters():
-        # 除head外，其他权重全部冻结
-        if "head" not in name:
-            para.requires_grad_(False)
-        else:
-            print("training {}".format(name))
+    # pretrained_dict = torch.load("C:\\Users\\whd\\PycharmProjects\\AD&HC\\cloud\\3Dvit\\model_6.8_13.01"
+    #                              "\\AD_VS_HC_model_6.8_13.01-fold1.pth")
+    # # net_states = model.state_dict()
+    # # state_dict = pretrained_dict['model_state_dict']
+    #
+    # del pretrained_dict['model_state_dict']['head.weight']
+    # del pretrained_dict['model_state_dict']['head.bias']
+    # model.load_state_dict(pretrained_dict['model_state_dict'], strict=False)
+    # for name, para in model.named_parameters():
+    #     # 除head外，其他权重全部冻结
+    #     if "head" not in name:
+    #         para.requires_grad_(False)
+    #     else:
+    #         print("training {}".format(name))
     model.to(device)
     lr = 0.00005
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
@@ -338,9 +340,9 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
 
 
 if __name__ == "__main__":
-    target_classification = 1
+    target_classification = 0
     model_name = '3Dvit'
-    model_floder = 'pretrained_model_6.8_13.01'
+    model_floder = 'MS_model_6.8_13.01'
     target_name: str = ''
     if target_classification == 0:
         print("AD VS HC")

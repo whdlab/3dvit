@@ -1,8 +1,10 @@
 import os
 import shutil
 
-ad_test_path = "C:\\Users\\whd\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub\\hc_split/test"
-hc_test_path = "C:\\Users\\whd\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub\\ad_split\\test"
+ad_test_path = "C:\\Users\\whd\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub\\hc_split" \
+               "/test "
+hc_test_path = "C:\\Users\\whd\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub\\ad_split" \
+               "\\test "
 
 test_save_path = "C:\\Users\\whd\Desktop\\MPSFFA-main\\data_npy\\112all_ad&hc_npy_data\\togather_image_to_sub\\test"
 def deprefix(root, class_list: list, save_path):
@@ -28,4 +30,4 @@ def deprefix(root, class_list: list, save_path):
 
 save_path = "E:\\datasets\\using_datasets\\112all_mci_npy_data\\togather_image_to_sub"
 root = "E:\\datasets\\using_datasets\\112all_mci_npy_data\\togather_image_to_sub\\mci_split"
-deprefix(root, ['smci', 'pmci'], save_path)
+deprefix(root, ['pmci', 'smci'], save_path)

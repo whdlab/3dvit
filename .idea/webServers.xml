@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="4ac05cd1-4df3-4e88-a710-e937f235e941" name="jiyuan">
+        <fileTransfer rootFolder="/home/wuhuidong/whd/new_vit" accessType="SFTP" host="117.161.233.38" port="16226" sshConfigId="0180e424-5765-441f-b352-2f6b849a0dd1" sshConfig="wuhuidong@117.161.233.38:16226 agent" authAgent="true">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

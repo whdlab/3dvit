@@ -101,13 +101,14 @@ class Trainer:
             #             if True:
             # if self.best_valid_score > valid_loss:
 
-            if self.best_valid_score < valid_auc and n_epoch > self.start_model_save_epoch:
+            if (self.best_valid_score < valid_auc and n_epoch > self.start_model_save_epoch) or acc_val > acc_best:
                 #             if self.best_valid_score > valid_loss:
                 self.save_model(n_epoch, modility, save_path, floder_path, current_val_loss=valid_loss, auc=valid_auc,
-                                fold=fold, all_epochs=epochs, patience=patience, current_val_acc=acc_val)
+                                fold=fold,
+                                all_epochs=epochs, patience=patience, current_val_acc=acc_val)
                 self.info_message(
-                    "loss decrease from {:.4f} to {:.4f}. Saved model to '{}'",
-                    self.best_valid_score, valid_auc, self.lastmodel
+                    "AUC from {:.4f} to {:.4f}. ACC from {:.4f} to {:.4f}.Saved model to '{}'",
+                    self.best_valid_score, valid_auc, acc_best, acc_val, self.lastmodel
                 )
                 self.best_valid_score = valid_auc
                 self.n_patience = 0
@@ -221,7 +222,7 @@ class Trainer:
     def info_message(message, *args, end="\n"):
         print(message.format(*args), end=end)
 
-    def save_moddel(self, n_epoch, modility, save_path, floder_path, current_val_loss, auc, fold, all_epochs, patience,
+    def save_model(self, n_epoch, modility, save_path, floder_path, current_val_loss, auc, fold, all_epochs, patience,
                     current_val_acc):
         os.makedirs(save_path, exist_ok=True)
         model_name = f"{modility}_{floder_path}-fold{fold}.pth"
@@ -254,15 +255,15 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
     val_dir = os.path.join(data_k_fold_path, 'test')
 
     if not start_model_save_epoch:
-        start_model_save_epoch = 5
+        start_model_save_epoch = 2
 
     train_data_retriever = CustomDataset(train_dir, split='train')
     valid_data_retriever = CustomDataset(val_dir, split='val')
     train_dataset_nums = len(train_data_retriever)
     val_dataset_nums = len(valid_data_retriever)
 
-    epoch = 50
-    patience = 50
+    epoch = 60
+    patience = 10
     batch_size = 8
     model = Convformer(num_classes=1, has_logits=False)
     # pretrained_dict = torch.load("C:\\Users\\whd\\PycharmProjects\\AD&HC\\cloud\\3Dvit\\model_6.8_13.01"
@@ -280,8 +281,8 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
     #     else:
     #         print("training {}".format(name))
     model.to(device)
-    lr = 0.00005
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
+    lr = 0.000002
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     #         optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     criterion = torch_functional.binary_cross_entropy_with_logits
     # scheduler = lr_scheduler.CosineAnnealingLR(optimizer, int((epoch * 9) / 10), eta_min=1e-7, last_epoch=-1 )
@@ -342,7 +343,7 @@ def train_mri_type(mri_type, data_k_fold_path, model_save_path, model_floder, RE
 if __name__ == "__main__":
     target_classification = 0
     model_name = '3Dvit'
-    model_floder = 'MS_model_6.8_13.01'
+    model_floder = '5block_MS_shortcut1_model_6.15_13.01'
     target_name: str = ''
     if target_classification == 0:
         print("AD VS HC")

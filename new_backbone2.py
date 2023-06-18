@@ -1,8 +1,36 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from timm.models.layers import trunc_normal_, DropPath
 from timm.models.registry import register_model
+
+
+class eca_block(nn.Module):
+    # 初始化, in_channel代表特征图的输入通道数, b和gama代表公式中的两个系数
+    def __init__(self, in_channel, b=1, gama=2):
+        super(eca_block, self).__init__()
+
+        kernel_size = int(abs((math.log(in_channel, 2) + b) / gama))
+        if kernel_size % 2:
+            kernel_size = kernel_size
+        else:
+            kernel_size = kernel_size + 1
+        padding = kernel_size // 2
+        self.avg_pool = nn.AdaptiveAvgPool3d(output_size=1)
+        self.conv = nn.Conv1d(in_channels=1, out_channels=1, kernel_size=kernel_size,
+                              bias=False, padding=padding)
+        self.sigmoid = nn.Sigmoid()
+
+    # 前向传播
+    def forward(self, inputs):
+        # 获得输入图像的shape
+        b, c, d, h, w = inputs.shape
+        x = self.conv(self.avg_pool(inputs).view([b, 1, c])).view([b, c, 1, 1, 1])
+        x = self.sigmoid(x)
+        outputs = x * inputs
+        return outputs
 
 
 class SpatialAttention(nn.Module):
@@ -17,6 +45,31 @@ class SpatialAttention(nn.Module):
         out = torch.cat([avgout, maxout], 1)
         out = self.sigmoid(self.conv(out))
         return out * x
+
+
+class ChannelAttention(nn.Module):
+    def __init__(self, c_in, m_in):
+        super(ChannelAttention, self).__init__()
+        self.avg_pool = nn.AdaptiveAvgPool3d(1)
+        self.max_pool = nn.AdaptiveMaxPool3d(1)
+
+        self.fc1 = nn.Linear(c_in, m_in)
+        self.relu1 = nn.ReLU()
+        self.fc2 = nn.Linear(m_in, c_in)
+        self.flatten = nn.Flatten()
+
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        avg_x = self.avg_pool(x)
+        max_x = self.max_pool(x)
+        avg_x = torch.reshape(avg_x, [avg_x.shape[0], -1])
+        max_x = torch.reshape(max_x, [max_x.shape[0], -1])
+        avg_out = self.fc2(self.relu1(self.fc1(avg_x)))
+        max_out = self.fc2(self.relu1(self.fc1(max_x)))
+        out = (avg_out + max_out).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+        return self.sigmoid(out)
+
 
 class CDAF_Block(nn.Module):
     def __init__(self, in_channel):
@@ -37,7 +90,14 @@ class CDAF_Block(nn.Module):
         self.sp_yzx = SpatialAttention()
         self.sp_xzy = SpatialAttention()
 
-    def forward(self, x):   # pass downsample, from size(Bx1x121x145x121) to size(Bx128x30x36x30)
+        self.eca1 = eca_block(in_channel)
+        self.eca2 = eca_block(in_channel)
+        self.eca3 = eca_block(in_channel)
+
+    def forward(self, x):  # pass downsample, from size(Bx1x121x145x121) to size(Bx128x30x36x30)
+        # x1 = self.sp_xyz(self.eca1(self.conv_bcxyz(x)))
+        # x2 = self.sp_yzx(self.eca2(self.conv_bcyzx(x.permute([0, 1, 3, 4, 2])))).permute([0, 1, 4, 2, 3])
+        # x3 = self.sp_xzy(self.eca3(self.conv_bcxzy(x.permute([0, 1, 2, 4, 3])))).permute([0, 1, 2, 4, 3])
         x1 = self.sp_xyz(self.conv_bcxyz(x))
         x2 = self.sp_yzx(self.conv_bcyzx(x.permute([0, 1, 3, 4, 2]))).permute([0, 1, 4, 2, 3])
         x3 = self.sp_xzy(self.conv_bcxzy(x.permute([0, 1, 2, 4, 3]))).permute([0, 1, 2, 4, 3])
@@ -145,10 +205,13 @@ class ConvNeXt3D(nn.Module):
             dim=dims[3],
             layer_scale_init_value=layer_scale_init_value)
 
-        self.SA1 = SpatialAttention()
-        self.SA2 = SpatialAttention()
+        # self.SA1 = SpatialAttention()
+        # self.SA2 = SpatialAttention()
 
         self.MS = CDAF_Block(64)
+        # self.MS1 = CDAF_Block(256)
+
+        # self.eca = eca_block(768)
 
     def _init_weights(self, m):
         if isinstance(m, (nn.Conv3d, nn.Linear)):
@@ -156,9 +219,9 @@ class ConvNeXt3D(nn.Module):
             nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
+
         x = self.DS1(x)
         x = self.conv_block1(x)
-        # x = self.SA1(x)
 
         x = self.DS2(x)
         x = self.conv_block2(x)
@@ -170,6 +233,7 @@ class ConvNeXt3D(nn.Module):
 
         x = self.DS4(x)
         x = self.conv_block4(x)
+        # x = self.MS1(x)
 
         x = self.DS5(x)
 
@@ -211,15 +275,16 @@ class LayerNorm3D(nn.Module):
 
 @register_model
 def convnext_tiny_3d():
-    model = ConvNeXt3D(in_chans=1, dims=[32, 64, 128, 256, 768])  # [3, 3, 9, 3]
+    model = ConvNeXt3D(in_chans=1, dims=[32, 64, 128, 256, 576])  # [3, 3, 9, 3]
     return model
 
 
 if __name__ == "__main__":
-    # input = torch.rand((1, 1, 112, 112, 112)).cuda()
-    input = torch.rand((1, 32, 56, 56, 56)).cuda()
+    input = torch.rand((1, 1, 112, 112, 112)).cuda()
+    # input = torch.rand((1, 32, 56, 56, 56)).cuda()
     net = convnext_tiny_3d()
-    net = CDAF_Block(32)
+    # net = eca_block(768)
+    # net = CDAF_Block(32)
     net.cuda()
     param_size = 0
     param_sum = 0

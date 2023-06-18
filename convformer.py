@@ -11,6 +11,7 @@ import torch.nn as nn
 # from new_backbone import convnext_tiny_3d
 from new_backbone2 import convnext_tiny_3d
 
+
 def DropKey(Q, K, V, use_Dropkey, mask_radio):
     attn = (Q * (Q.shape[1] ** -0.5)) @ K.transpose(-2, -1)
     if use_Dropkey == True:
@@ -19,6 +20,7 @@ def DropKey(Q, K, V, use_Dropkey, mask_radio):
     attn = attn.softmax(dim=-1)
     x = attn @ V
     return x
+
 
 def drop_path(x, drop_prob: float = 0., training: bool = False):
     """
@@ -138,7 +140,6 @@ class Attention(nn.Module):
         self.proj = nn.Linear(dim, dim)  # 再得到多头注意分数后，进行concat后再经过一个权重为Wo的fc
         self.proj_drop = nn.Dropout(proj_drop_ratio)
 
-
     def forward(self, x):
         # [batch_size, num_patches + 1, total_embed_dim]
         B, N, C = x.shape
@@ -225,43 +226,21 @@ class Block(nn.Module):
 
 
 class convformer(nn.Module):
-    def __init__(self, img_size=224, patch_size=16, in_c=3, num_classes=1000,
+    def __init__(self, num_classes=1000,
                  embed_dim=768, depth=12, num_heads=12, mlp_ratio=4.0, qkv_bias=True,
                  qk_scale=None, representation_size=None, distilled=False, drop_ratio=0.,
                  attn_drop_ratio=0., drop_path_ratio=0., embed_layer=PatchEmbed, norm_layer=None,
-                 act_layer=None):
-        """
-        Args:
-            img_size (int, tuple): input image size
-            patch_size (int, tuple): patch size
-            in_c (int): number of input channels
-            num_classes (int): number of classes for classification head
-            embed_dim (int): embedding dimension
-            depth (int): depth of transformer   encoder个数
-            num_heads (int): number of attention heads
-            mlp_ratio (int): ratio of mlp hidden dim to embedding dim
-            qkv_bias (bool): enable bias for qkv if True
-            qk_scale (float): override default qk scale of head_dim ** -0.5 if set
-            representation_size (Optional[int]): enable and set representation layer (pre-logits) to this value if set
-            distilled (bool): model includes a distillation token and head as in DeiT models
-            drop_ratio (float): dropout rate
-            attn_drop_ratio (float): attention dropout rate
-            drop_path_ratio (float): stochastic depth rate
-            embed_layer (nn.Module): patch embedding layer
-            norm_layer: (nn.Module): normalization layer
-        """
+                 act_layer=None, num_patches=None):
+
         super(convformer, self).__init__()
         self.num_classes = num_classes
         self.num_features = self.embed_dim = embed_dim  # num_features for consistency with other models
         self.num_tokens = 2 if distilled else 1
+        self.depth = depth
         norm_layer = norm_layer or partial(nn.LayerNorm, eps=1e-6)
         act_layer = act_layer or nn.GELU
 
         self.backbone = convnext_tiny_3d()
-
-        self.patch_embed = embed_layer(img_size=img_size, patch_size=patch_size, in_c=in_c, embed_dim=embed_dim)
-        num_patches = 6 * 6 * 6
-
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))  # trainable, shape(batch-size， patch—num，
         # embed_dim)
         self.dist_token = nn.Parameter(torch.zeros(1, 1, embed_dim)) if distilled else None
@@ -270,12 +249,14 @@ class convformer(nn.Module):
 
         dpr = [x.item() for x in
                torch.linspace(0, drop_path_ratio, depth)]  # 逐层增加dropout_rate,stochastic depth decay rule
+
         self.blocks = nn.Sequential(*[
             Block(dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, qk_scale=qk_scale,
                   drop_ratio=drop_ratio, attn_drop_ratio=attn_drop_ratio, drop_path_ratio=dpr[i],
                   norm_layer=norm_layer, act_layer=act_layer)
-            for i in range(depth)
+            for i in range(self.depth)
         ])
+
         self.norm = norm_layer(embed_dim)
 
         # Representation layer
@@ -290,6 +271,15 @@ class convformer(nn.Module):
             self.has_logits = False
             self.pre_logits = nn.Identity()
 
+        self.conv1d = nn.Conv1d(6, 1, kernel_size=3, stride=1, padding=1)
+        self.w_list = [torch.nn.Parameter(torch.tensor([0.025]), requires_grad=True),
+                  torch.nn.Parameter(torch.tensor([0.025]), requires_grad=True),
+                  torch.nn.Parameter(torch.tensor([0.05]), requires_grad=True),
+                  torch.nn.Parameter(torch.tensor([0.1]), requires_grad=True),
+                  torch.nn.Parameter(torch.tensor([0.2]), requires_grad=True),
+                  torch.nn.Parameter(torch.tensor([0.6]), requires_grad=True),
+                  ]
+
         # Classifier head(s)
         self.head = nn.Linear(self.num_features, num_classes) if num_classes > 0 else nn.Identity()
         self.head_dist = None
@@ -298,35 +288,28 @@ class convformer(nn.Module):
 
         # Weight init
         nn.init.trunc_normal_(self.pos_embed, std=0.02)
-        if self.dist_token is not None:
-            nn.init.trunc_normal_(self.dist_token, std=0.02)
-
         nn.init.trunc_normal_(self.cls_token, std=0.02)
+        nn.init.kaiming_normal_(self.conv1d.weight, mode="fan_out")
+        nn.init.zeros_(self.conv1d.bias)
         self.apply(_init_vit_weights)
         # backbone->convnxt
 
     def forward_features(self, x):
         # [B, C, H, W] -> [B, num_patches, embed_dim]
         # x = self.patch_embed(x)  # [B, 196, 768]
+        out_list = []
         x = self.backbone(x)  # [B, 216, 768]
-        # [1, 1, 768] -> [B, 1, 768]
-
-        cls_token = self.cls_token.expand(x.shape[0], -1, -1)  # .expand(x.shape[0], -1,
-        # -1)实现在cls_token的第一个维度上复制扩展Batchsize次 ，使得cls_token和x同shape
-        if self.dist_token is None:
-            x = torch.cat((cls_token, x), dim=1)  # [B, 197, 768]   # 得到加入了class
-            # token的张量矩阵，注意classtoken应该为batch中每个数据的开头行，即x的shape=（197,768）,则其中的class_token为 x[0]
-
-        else:
-            x = torch.cat((cls_token, self.dist_token.expand(x.shape[0], -1, -1), x), dim=1)
-
+        cls_token = self.cls_token.expand(x.shape[0], -1, -1)
+        x = torch.cat((cls_token, x), dim=1)  # [B, 197, 768]   # 得到加入了class
         x = self.pos_drop(x + self.pos_embed)  # 得到位置嵌入后的张量
-        x = self.blocks(x)
-        x = self.norm(x)  # ！
-        if self.dist_token is None:
-            return self.pre_logits(x[:, 0])  # pre_logits为None时直接返回x[:, 0]->shape=(batch_size, 1, 768],即为class_token
-        else:
-            return x[:, 0], x[:, 1]
+        for i in range(self.depth):
+            x = self.blocks[i](x)
+            out = x[:, 0].unsqueeze(1) * (self.w_list[i].cuda())
+            out_list.append(out)
+        out = torch.stack(out_list).squeeze(2).permute([1, 0, 2])
+        out = self.conv1d(out).squeeze(1)
+        out = self.norm(out)  # ！
+        return self.pre_logits(out)  # pre_logits为None时直接返回x[:, 0]->shape=(batch_size, 1, 768],即为class_token
 
     def forward(self, x):
         x = self.forward_features(x)
@@ -361,15 +344,13 @@ def _init_vit_weights(m):
 
 
 def Convformer(num_classes: int = 2, has_logits: bool = True):
-    model = convformer(img_size=112,  # 224
-                       patch_size=16,
-                       embed_dim=768,
-                       in_c=1,
+    model = convformer(embed_dim=576,
                        depth=6,
                        num_heads=12,
-                       drop_path_ratio=0.1,
-                       representation_size=768 if has_logits else None,
-                       num_classes=num_classes)
+                       drop_path_ratio=0.15,
+                       representation_size=576 if has_logits else None,
+                       num_classes=num_classes,
+                       num_patches=6 * 6 * 6)
     return model
 
 
@@ -392,4 +373,3 @@ if __name__ == "__main__":
     print("{:.3f} MB".format(torch.cuda.memory_allocated(0) / 1024 / 1024))
     out = net(input)
     print(out)
-    print(net)
